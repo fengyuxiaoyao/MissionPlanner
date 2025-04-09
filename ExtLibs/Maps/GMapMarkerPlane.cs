@@ -71,6 +71,7 @@ namespace MissionPlanner.Maps
         public float Nav_bearing { get => nav_bearing; set => nav_bearing = value; }
         public float Radius { get => radius; set => radius = value; }
         public float Target { get => target; set => target = value; }
+        public int Which { get => which; set => which = value; }
 
         public override void OnRender(IGraphics g)
         {

@@ -14,6 +14,7 @@ using KMLib.Feature;
 using KMLib.Geometry;
 using log4net;
 using MissionPlanner.Utilities;
+using System.Diagnostics;
 
 namespace MissionPlanner.Log
 {
@@ -54,7 +55,7 @@ namespace MissionPlanner.Log
         }
 
         public List<PointLatLngAlt> PosLatLngAlts = new List<PointLatLngAlt>();
-
+        public List<PointLatLngAlt> SimLatLngAlts = new List<PointLatLngAlt>();
         public void processLine(string line)
         {
             try
@@ -162,6 +163,24 @@ namespace MissionPlanner.Log
                                 double.Parse(items[poslngindex], CultureInfo.InvariantCulture),
                                 double.Parse(items[posaltindex], CultureInfo.InvariantCulture)));
                     }
+                }
+                else if (items[0].Contains("SIM"))
+                {
+                    if (items[0].Contains("SIM2"))
+                        return;
+                    if (dflog.logformat.ContainsKey("SIM"))
+                    {
+                        int simlatindex = dflog.FindMessageOffset("SIM", "Lat");
+                        int simlngindex = dflog.FindMessageOffset("SIM", "Lng");
+                        int simaltindex = dflog.FindMessageOffset("SIM", "Alt");
+
+                        SimLatLngAlts.Add(
+                            new PointLatLngAlt(
+                                double.Parse(items[simlatindex], CultureInfo.InvariantCulture),
+                                double.Parse(items[simlngindex], CultureInfo.InvariantCulture),
+                                double.Parse(items[simaltindex], CultureInfo.InvariantCulture)));
+                    }
+                    
                 }
                 else if (items[0].Contains("GRAW"))
                 {
@@ -924,6 +943,7 @@ gnssId GNSS Type
             pmPOS.name = "POS Message";
             pmPOS.LineString = new LineString();
             pmPOS.LineString.coordinates = new Coordinates();
+            // pmPOS.LineString.altitudeMode = AltitudeMode.absolute;
             Point3D lastPoint3D = new Point3D();
             PointLatLngAlt lastplla = PointLatLngAlt.Zero;
             foreach (var item in PosLatLngAlts)
@@ -955,6 +975,21 @@ gnssId GNSS Type
             }
             pmPOS.AddStyle(style);
             fldr.Add(pmPOS);
+
+            Placemark pmSIM = new Placemark();
+            pmSIM.name = "SIM Message";
+            pmSIM.LineString = new LineString();
+            pmSIM.LineString.coordinates = new Coordinates();
+            // pmSIM.LineString.altitudeMode = AltitudeMode.absolute;
+            // pmSIM.LineString.extrude = true;
+
+            foreach (var item in SimLatLngAlts)
+            {
+                pmSIM.LineString.coordinates.Add(new Point3D(item.Lng, item.Lat, item.Alt));
+            }
+
+            pmSIM.AddStyle(style); // 自定义样式区分，比如红色线条
+            fldr.Add(pmSIM);
 
             Folder planes = new Folder();
             planes.name = "Planes";

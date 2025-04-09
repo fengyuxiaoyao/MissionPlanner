@@ -94,6 +94,7 @@ namespace MissionPlanner
         private float _wpdist;
 
         private float _yaw;
+        private float _sim_yaw;
         internal bool batterymonitoring = false;
 
         // current firmware
@@ -180,6 +181,7 @@ namespace MissionPlanner
         }
 
         private bool useLocation;
+        private bool useSimstate;
 
         /// <summary>
         ///     used for wind calc
@@ -254,6 +256,22 @@ namespace MissionPlanner
         public float customfield17 { get; set; }
         public float customfield18 { get; set; }
         public float customfield19 { get; set; }
+        public double sim_lat { get; set; }
+        public double sim_lng { get; set; }
+        public float sim_alt { get; set; }
+        public float sim_pitch { get; set; }
+        public float sim_roll { get; set; }
+        public float sim_yaw { 
+            get => _sim_yaw;
+            set
+            {
+                if (value < 0)
+                    _sim_yaw = value + 360;
+                else
+                    _sim_yaw = value;
+            }
+         }
+        public PointLatLngAlt SIM_Location => new PointLatLngAlt(sim_lat, sim_lng, sim_alt);
 
         // orientation - rads
         [DisplayFieldName("roll.Field")]
@@ -2441,7 +2459,7 @@ namespace MissionPlanner
                             alt = altasl - (float)HomeAlt;
                             alt_error = highlatency.target_altitude - alt;
                             targetalt = highlatency.target_altitude;
-                            wp_dist = highlatency.target_distance * 10;
+                            wp_dist = highlatency.target_distance;
                             wpno = highlatency.wp_num;
 
                             if (highlatency.failure_flags != 0)
@@ -2471,15 +2489,15 @@ namespace MissionPlanner
                             yaw = highlatency.heading * 2;
                             target_bearing = highlatency.target_heading * 2;
                             ch3percent = highlatency.throttle;
-                            airspeed = highlatency.airspeed / 5.0f;
-                            targetairspeed = highlatency.airspeed_sp / 5.0f;
-                            groundspeed = highlatency.groundspeed / 5.0f;
+                            airspeed = highlatency.airspeed;
+                            targetairspeed = highlatency.airspeed_sp;
+                            groundspeed = highlatency.groundspeed;
                             wind_vel = highlatency.windspeed / 5.0f;
                             wind_dir = highlatency.wind_heading * 2;
                             gpshdop = highlatency.eph;
                             // epv
                             airspeed1_temp = highlatency.temperature_air;
-                            climbrate = highlatency.climb_rate * 10;
+                            climbrate = highlatency.climb_rate;
                             battery_remaining = highlatency.battery;
 
                         }
@@ -3160,18 +3178,33 @@ namespace MissionPlanner
 
 
                         {
+                            // if(!useSimstate){
                             var att = mavLinkMessage.ToStructure<MAVLink.mavlink_attitude_t>();
 
                             roll = (float)(att.roll * MathHelper.rad2deg);
                             pitch = (float)(att.pitch * MathHelper.rad2deg);
                             yaw = (float)(att.yaw * MathHelper.rad2deg);
-
+                            // }
                             //Console.WriteLine(MAV.sysid + " " +roll + " " + pitch + " " + yaw);
 
                             //MAVLink.packets[(byte)MAVLink.MSG_NAMES.ATTITUDE);
                         }
 
                         break;
+                    case (uint)MAVLink.MAVLINK_MSG_ID.SIMSTATE:
+                    
+                        {                            
+                            useSimstate=true;
+                            var sim = mavLinkMessage.ToStructure<MAVLink.mavlink_simstate_t>();
+                            sim_lat = sim.lat / 10000000.0;
+                            sim_lng = sim.lng / 10000000.0;
+                            sim_roll = (float)(sim.roll * MathHelper.rad2deg);
+                            sim_pitch = (float)(sim.pitch * MathHelper.rad2deg);
+                            sim_yaw = (float)(sim.yaw * MathHelper.rad2deg);
+                        }
+
+                        break;
+
                     case (uint)MAVLink.MAVLINK_MSG_ID.GLOBAL_POSITION_INT:
 
                         {
@@ -3238,6 +3271,7 @@ namespace MissionPlanner
                                 gpsvel_acc = gps.vel_acc / 1000.0f;
                                 gpshdg_acc = gps.hdg_acc / 1e5f;
                                 gpsyaw = gps.yaw / 100.0f;
+                                
                             }
                             else
                             {

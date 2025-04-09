@@ -1,4 +1,4 @@
-using DirectShowLib;
+﻿using DirectShowLib;
 using GMap.NET;
 using GMap.NET.WindowsForms;
 using GMap.NET.WindowsForms.Markers;
@@ -145,6 +145,7 @@ namespace MissionPlanner.GCSViews
         private Propagation prop;
 
         GMapRoute route;
+        GMapRoute sim_route;
         GMapOverlay routes;
         GMapOverlay adsbais;
 
@@ -172,6 +173,7 @@ namespace MissionPlanner.GCSViews
         //      private DockStateSerializer _serializer = null;
 
         List<PointLatLng> trackPoints = new List<PointLatLng>();
+        List<PointLatLng> sim_trackPoints = new List<PointLatLng>();
         volatile int updateBindingSourcecount;
 
         object updateBindingSourcelock = new object();
@@ -824,6 +826,8 @@ namespace MissionPlanner.GCSViews
                 routes.Dispose();
             if (route != null)
                 route.Dispose();
+            if(sim_route!=null)
+                sim_route.Dispose();
             if (marker != null)
                 marker.Dispose();
             if (aviwriter != null)
@@ -946,11 +950,19 @@ namespace MissionPlanner.GCSViews
             this.BeginInvokeIfRequired(() =>
             {
                 var marker = Common.getMAVMarker(MAV, routes);
-
+                var sim_marker = Common.getSIM_MAVMarker(MAV, routes);
                 if (marker == null || marker.Position.Lat == 0 && marker.Position.Lng == 0)
-                    return;
+                    {
+
+                    return;}
 
                 addMissionRouteMarker(marker);
+                if (sim_marker == null || sim_marker.Position.Lat == 0 && sim_marker.Position.Lng == 0)
+                    {
+
+                    return;}
+                addMissionRouteMarker(sim_marker);
+                
             });
         }
 
@@ -1084,6 +1096,8 @@ namespace MissionPlanner.GCSViews
         {
             if (route != null)
                 route.Points.Clear();
+            if(sim_route!=null)
+                sim_route.Points.Clear();
 
             if (MainV2.comPort.MAV.camerapoints != null)
                 MainV2.comPort.MAV.camerapoints.Clear();
@@ -3716,23 +3730,37 @@ namespace MissionPlanner.GCSViews
                             route = new GMapRoute(trackPoints, "track");
                             routes.Routes.Add(route);
                         }
-
+                        if (sim_route == null)
+                        {
+                            sim_route = new GMapRoute(sim_trackPoints, "sim_track");
+                            sim_route.Stroke = new Pen(Color.Yellow, 2);
+                            routes.Routes.Add(sim_route);
+                        }
                         PointLatLng currentloc = new PointLatLng(MainV2.comPort.MAV.cs.lat, MainV2.comPort.MAV.cs.lng);
 
                         gMapControl1.HoldInvalidation = true;
 
                         int numTrackLength = Settings.Instance.GetInt32("NUM_tracklength", 200);
+                        //这里可能是绘制轨迹线部分的代码
                         // maintain route history length
                         if (route.Points.Count > numTrackLength)
                         {
                             route.Points.RemoveRange(0,
                                 route.Points.Count - numTrackLength);
                         }
-
+                        if(sim_route.Points.Count > numTrackLength)
+                        {
+                            sim_route.Points.RemoveRange(0,
+                                sim_route.Points.Count - numTrackLength);
+                        }
                         // add new route point
                         if (MainV2.comPort.MAV.cs.lat != 0 && MainV2.comPort.MAV.cs.lng != 0)
                         {
                             route.Points.Add(currentloc);
+                        }
+                        if(MainV2.comPort.MAV.cs.sim_lat != 0 && MainV2.comPort.MAV.cs.sim_lng != 0)
+                        {
+                            sim_route.Points.Add(new PointLatLng(MainV2.comPort.MAV.cs.sim_lat, MainV2.comPort.MAV.cs.sim_lng));
                         }
 
                         if (!this.IsHandleCreated)
@@ -4159,10 +4187,12 @@ namespace MissionPlanner.GCSViews
                                     Color.Blue,
                                     routes);
                             }
+                            //蓝色圆圈，这是绘制guided下目标点周围那圈蓝色圆圈的代码
 
                             // draw all icons for all connected mavs
                             foreach (var port in MainV2.Comports.ToArray())
                             {
+                                System.Diagnostics.Debug.WriteLine("port.Mavlist: "+ port.MAVlist.Count);
                                 // draw the mavs seen on this port
                                 foreach (var MAV in port.MAVlist)
                                 {
@@ -4177,7 +4207,7 @@ namespace MissionPlanner.GCSViews
 
                             // Draw the active aircraft
                             addMAVMarker(MainV2.comPort.MAV);
-
+                            //后续应该是自动平移地图的代码
                             if (route.Points.Count == 0 || route.Points[route.Points.Count - 1].Lat != 0 &&
                                 (mapupdate.AddSeconds(3) < DateTime.Now) && CHK_autopan.Checked)
                             {
@@ -4642,6 +4672,7 @@ namespace MissionPlanner.GCSViews
             // add last point
             homeroute.Points.Add(polygonPoints[polygonPoints.Count - 1]);
 
+            //这里画的应该是飞行过程中黄色的指向线direct to cuurent
             GMapRoute wppath = new GMapRoute("wp path");
             wppath.Stroke = new Pen(Color.Yellow, 4);
             wppath.Stroke.DashStyle = DashStyle.Custom;
@@ -5472,6 +5503,7 @@ namespace MissionPlanner.GCSViews
             {
                 routes.Routes.Clear();
                 routes.Routes.Add(route);
+                routes.Routes.Add(sim_route);
             });
         }
 
@@ -5606,6 +5638,7 @@ namespace MissionPlanner.GCSViews
         {
             // not async
             BeginInvoke((Action) delegate { gMapControl1.UpdateRouteLocalPosition(route); });
+            BeginInvoke((Action) delegate { gMapControl1.UpdateRouteLocalPosition(sim_route); });
         }
 
         private void zg1_DoubleClick(object sender, EventArgs e)

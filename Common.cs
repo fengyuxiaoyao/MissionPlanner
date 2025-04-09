@@ -21,6 +21,54 @@ namespace MissionPlanner
     {
         private static readonly ILog log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
+        public static GMapMarker getSIM_MAVMarker(MAVState MAV, GMapOverlay overlay = null)
+        {
+            PointLatLng portlocation = MAV.cs.SIM_Location;
+            if(overlay!= null)
+            {             
+                var existing = overlay.Markers.Where((a)=>a.Tag == MAV).ToArray();                
+                if(existing.Count() > 0) {                   
+                    foreach(var item in existing)
+                    {
+                        if (item is GMapMarkerPlane itemp && itemp.Which == MAV.sysid + 1)
+                        {
+                            itemp.Position = portlocation;
+                            itemp.Heading = MAV.cs.sim_yaw;
+                            itemp.Cog = MAV.cs.groundcourse;
+                            itemp.Target = MAV.cs.target_bearing;
+                            itemp.Nav_bearing = MAV.cs.nav_bearing;
+                            itemp.Radius = (float)CurrentState.fromDistDisplayUnit(MAV.cs.radius) / 2;
+                            itemp.IsActive = MAV == MainV2.comPort?.MAV;
+                            return null;
+                        }
+                    }               
+                }
+            }
+            if (MAV.aptype == MAVLink.MAV_TYPE.FIXED_WING ||
+                MAV.aptype >= MAVLink.MAV_TYPE.VTOL_DUOROTOR && MAV.aptype <= MAVLink.MAV_TYPE.VTOL_RESERVED5)
+            {
+                System.Diagnostics.Debug.WriteLine("In return new gmapmarkerplane");
+
+                return new GMapMarkerPlane(
+                    MAV.sysid + 1,
+                    portlocation,
+                    MAV.cs.sim_yaw,
+                    MAV.cs.groundcourse,
+                    MAV.cs.nav_bearing,
+                    MAV.cs.target_bearing,
+                    (float)CurrentState.fromDistDisplayUnit(MAV.cs.radius)/2)
+                {
+                    IsActive = MAV == MainV2.comPort?.MAV,
+                    ToolTipText = ArduPilot.Common.speechConversion(MAV, "" + Settings.Instance["mapicondesc"]),
+                    ToolTipMode = String.IsNullOrEmpty(Settings.Instance["mapicondesc"]) ?
+                                  MarkerTooltipMode.Never :
+                                  MarkerTooltipMode.Always,
+                    Tag = MAV
+                };
+            }
+            else
+                return null;
+        }
         public static GMapMarker getMAVMarker(MAVState MAV, GMapOverlay overlay = null)
         {
             PointLatLng portlocation = MAV.cs.Location;
@@ -28,49 +76,56 @@ namespace MissionPlanner
             if(overlay!= null)
             {
                 var existing = overlay.Markers.Where((a)=>a.Tag == MAV).ToArray();                
-                if (existing.Count() > 1)
-                {
-                    existing.Skip(1).ToArray().ForEach((a) => { overlay.Markers.Remove(a);});
-                }
+                // if (existing.Count() > 1)
+                // {
+                //     existing.Skip(1).ToArray().ForEach((a) => { overlay.Markers.Remove(a);});
+                // }
                 if(existing.Count() > 0) {
-                    var item = existing.First();
-                    if (item is GMapMarkerPlane)
+                    foreach (var item in existing)
                     {
-                        var itemp = (GMapMarkerPlane)item;
-                        itemp.Position = portlocation;
-                        itemp.Heading = MAV.cs.yaw;
-                        itemp.Cog = MAV.cs.groundcourse;
-                        itemp.Target = MAV.cs.target_bearing;
-                        itemp.Nav_bearing = MAV.cs.nav_bearing;
-                        itemp.Radius = (float)CurrentState.fromDistDisplayUnit(MAV.cs.radius);
-                        itemp.IsActive = MAV == MainV2.comPort?.MAV;
-                        return null;
-                    }
-                    else if (item is GMapMarkerQuad)
-                    {
-                        var itemq = (GMapMarkerQuad)item;
-                        itemq.Position = portlocation;
-                        itemq.Heading = MAV.cs.yaw;
-                        itemq.Cog = MAV.cs.groundcourse;
-                        itemq.Target = MAV.cs.nav_bearing;
-                        itemq.Sysid = MAV.sysid;
-                        itemq.IsActive = MAV == MainV2.comPort?.MAV;
-                        return null;
-                    }
-                    else if (item is GMapMarkerRover)
-                    {
-                        var itemr = (GMapMarkerRover)item;
-                        itemr.Position = portlocation;
-                        itemr.Heading = MAV.cs.yaw;
-                        itemr.Cog = MAV.cs.groundcourse;
-                        itemr.Target = MAV.cs.target_bearing;
-                        itemr.Nav_bearing = MAV.cs.nav_bearing;
-                        itemr.IsActive = MAV == MainV2.comPort?.MAV;
-                        return null;
-                    }
-                    else
-                    {
-                        existing.ForEach((a)=> overlay.Markers.Remove(a));
+                        if (item is GMapMarkerPlane)
+                        {
+                            var itemp = (GMapMarkerPlane)item;
+                            if (itemp.Which == MAV.sysid - 1)
+                            {
+                                itemp.Position = portlocation;
+                                itemp.Heading = MAV.cs.yaw;
+                                itemp.Cog = MAV.cs.groundcourse;
+                                itemp.Target = MAV.cs.target_bearing;
+                                itemp.Nav_bearing = MAV.cs.nav_bearing;
+                                itemp.Radius = (float)CurrentState.fromDistDisplayUnit(MAV.cs.radius);
+                                itemp.IsActive = MAV == MainV2.comPort?.MAV;
+                                return null;
+                            }
+                            else
+                                continue;
+                        }
+                        else if (item is GMapMarkerQuad)
+                        {
+                            var itemq = (GMapMarkerQuad)item;
+                            itemq.Position = portlocation;
+                            itemq.Heading = MAV.cs.yaw;
+                            itemq.Cog = MAV.cs.groundcourse;
+                            itemq.Target = MAV.cs.nav_bearing;
+                            itemq.Sysid = MAV.sysid;
+                            itemq.IsActive = MAV == MainV2.comPort?.MAV;
+                            return null;
+                        }
+                        else if (item is GMapMarkerRover)
+                        {
+                            var itemr = (GMapMarkerRover)item;
+                            itemr.Position = portlocation;
+                            itemr.Heading = MAV.cs.yaw;
+                            itemr.Cog = MAV.cs.groundcourse;
+                            itemr.Target = MAV.cs.target_bearing;
+                            itemr.Nav_bearing = MAV.cs.nav_bearing;
+                            itemr.IsActive = MAV == MainV2.comPort?.MAV;
+                            return null;
+                        }
+                        else
+                        {
+                            existing.ForEach((a) => overlay.Markers.Remove(a));
+                        }
                     }
                 }
             }
@@ -209,10 +264,6 @@ namespace MissionPlanner
                     MAV.sysid)
                 {
                     IsActive = MAV == MainV2.comPort?.MAV,
-                    ToolTipText = ArduPilot.Common.speechConversion(MAV, "" + Settings.Instance["mapicondesc"]),
-                    ToolTipMode = String.IsNullOrEmpty(Settings.Instance["mapicondesc"]) ?
-                                  MarkerTooltipMode.Never :
-                                  MarkerTooltipMode.Always,
                     Tag = MAV
                 };
             }
