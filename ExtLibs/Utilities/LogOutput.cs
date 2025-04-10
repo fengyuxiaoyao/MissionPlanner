@@ -903,7 +903,7 @@ gnssId GNSS Type
                     pmpoly.styleUrl = "#spray";
 
                     fldr.Add(pmpoly);
-                }
+                } 
                 */
                 LineString ls = new LineString();
                 ls.AltitudeMode = altmode;
@@ -941,7 +941,8 @@ gnssId GNSS Type
 
             Placemark pmPOS = new Placemark();
             pmPOS.name = "POS Message";
-            pmPOS.LineString = new LineString();
+
+            pmPOS.LineString = new LineString() ;
             pmPOS.LineString.coordinates = new Coordinates();
             // pmPOS.LineString.altitudeMode = AltitudeMode.absolute;
             Point3D lastPoint3D = new Point3D();
@@ -967,6 +968,7 @@ gnssId GNSS Type
                     // create new
                     pmPOS = new Placemark();
                     pmPOS.name = "POS Message - extra";
+
                     pmPOS.LineString = new LineString();
                     pmPOS.LineString.coordinates = new Coordinates();
                     lastPoint3D = new Point3D();
@@ -976,20 +978,40 @@ gnssId GNSS Type
             pmPOS.AddStyle(style);
             fldr.Add(pmPOS);
 
+            LineString ls2 = new LineString();
+            ls2.AltitudeMode = altmode;
+            ls2.Extrude = true;
+
             Placemark pmSIM = new Placemark();
             pmSIM.name = "SIM Message";
-            pmSIM.LineString = new LineString();
+            // pmSIM.LineString = new LineString();
+            pmSIM.LineString = ls2;
             pmSIM.LineString.coordinates = new Coordinates();
-            // pmSIM.LineString.altitudeMode = AltitudeMode.absolute;
-            // pmSIM.LineString.extrude = true;
+            // pmSIM.LineString.altitudeMode = altmode; // Added altitudeMode back
 
+            Placemark pmSIMPath = new Placemark();
+            pmSIMPath.name = "SIM Path";
+            pmSIMPath.LineString = new LineString();
+            pmSIMPath.LineString.coordinates = new Coordinates();
             foreach (var item in SimLatLngAlts)
             {
                 pmSIM.LineString.coordinates.Add(new Point3D(item.Lng, item.Lat, item.Alt));
+                pmSIMPath.LineString.coordinates.Add(new Point3D(item.Lng, item.Lat, item.Alt));
             }
 
-            pmSIM.AddStyle(style); // 自定义样式区分，比如红色线条
+            
+            stylecode = colours[(g+1) % (colours.Length - 1)].ToArgb();
+
+            Style simstyle = new Style();
+            Color simcolor = Color.FromArgb(0xff, (stylecode >> 16) & 0xff, (stylecode >> 8) & 0xff,
+                (stylecode >> 0) & 0xff);
+            log.Info("colour " + simcolor.ToArgb().ToString("X") + " " + simcolor.ToString());
+            simstyle.Add(new LineStyle(simcolor, 4));
+
+            pmSIM.AddStyle(simstyle); // 自定义样式区分，比如红色线条
             fldr.Add(pmSIM);
+            pmSIMPath.AddStyle(simstyle); // 自定义样式区分，比如红色线条
+            fldr.Add(pmSIMPath);
 
             Folder planes = new Folder();
             planes.name = "Planes";
